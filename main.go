@@ -8,7 +8,11 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 )
+
+var store = make(map[string]string)
+var mu sync.Mutex
 
 func main() {
 	listener, err := net.Listen("tcp", ":6390")
@@ -78,5 +82,58 @@ func handleConnection(conn net.Conn) {
 		if strings.EqualFold(command[0], "ECHO") {
 			conn.Write([]byte("$" + strconv.Itoa(len(command[1])) + "\r\n" + command[1] + "\r\n"))
 		}
+		if strings.EqualFold(command[0], "SET") {
+			setValue(command[1], command[2])
+			conn.Write([]byte("+OK\r\n"))
+		}
+		if strings.EqualFold(command[0], "GET") {
+			value, ok := getValue(command[1])
+			if ok {
+				conn.Write([]byte("$" + strconv.Itoa(len(value)) + "\r\n" + value + "\r\n"))
+			} else {
+				conn.Write([]byte("$-1\r\n"))
+			}
+		}
+		if strings.EqualFold(command[0], "DEL") {
+			deleted := deleteValue(command[1])
+			if deleted {
+				conn.Write([]byte(":1\r\n"))
+			} else {
+				conn.Write([]byte(":0\r\n"))
+			}
+		}
+		if strings.EqualFold(command[0], "EXISTS") {
+			exists := existsValue(command[1])
+			if exists {
+				conn.Write([]byte(":1\r\n"))
+			} else {
+				conn.Write([]byte(":0\r\n"))
+			}
+		}
 	}
+}
+func setValue(key, value string) {
+	mu.Lock()
+	defer mu.Unlock()
+	store[key] = value
+}
+
+func getValue(key string) (string, bool) {
+	mu.Lock()
+	defer mu.Unlock()
+	value, ok := store[key]
+	return value, ok
+}
+func deleteValue(key string) bool {
+	mu.Lock()
+	defer mu.Unlock()
+	_, ok := store[key]
+	delete(store, key)
+	return ok
+}
+func existsValue(key string) bool {
+	mu.Lock()
+	defer mu.Unlock()
+	_, ok := store[key]
+	return ok
 }

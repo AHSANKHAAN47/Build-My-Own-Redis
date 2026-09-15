@@ -8,7 +8,7 @@ you write the code, I review. Check off stages as we complete them.
 - [x] 1.2 RESP protocol: parse a PING, reply +PONG\r\n
 - [x] 1.3 Handle multiple concurrent clients (goroutines) + multi-command per connection
 - [x] 1.4 ECHO command (done ahead of schedule alongside 1.2)
-- [ ] 1.5 In-memory store: SET / GET (map + mutex)
+- [x] 1.5 In-memory store: SET / GET (map + mutex)
 - [ ] 1.6 DEL, EXISTS
 - [ ] 1.7 Key expiry: SET ... PX/EX, passive + active expiration
 
