@@ -9,9 +9,15 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
-var store = make(map[string]string)
+type storeEntry struct {
+	value     string
+	expiresAt time.Time // zero value = koi expiry nahi
+}
+
+var store = make(map[string]storeEntry)
 var mu sync.Mutex
 
 func main() {
@@ -22,6 +28,12 @@ func main() {
 	}
 	defer listener.Close()
 	fmt.Println("Server is running on port 6390")
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		for range ticker.C {
+			sweepExpiredKeys()
+		}
+	}()
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -83,7 +95,20 @@ func handleConnection(conn net.Conn) {
 			conn.Write([]byte("$" + strconv.Itoa(len(command[1])) + "\r\n" + command[1] + "\r\n"))
 		}
 		if strings.EqualFold(command[0], "SET") {
-			setValue(command[1], command[2])
+			expiresAt := time.Time{}
+			if len(command) == 5 && strings.EqualFold(command[3], "PX") {
+				ms, err := strconv.Atoi(command[4])
+				if err == nil {
+					expiresAt = time.Now().Add(time.Duration(ms) * time.Millisecond)
+				}
+			}
+			if len(command) == 5 && strings.EqualFold(command[3], "EX") {
+				sec, err := strconv.Atoi(command[4])
+				if err == nil {
+					expiresAt = time.Now().Add(time.Duration(sec) * time.Second)
+				}
+			}
+			setValue(command[1], command[2], expiresAt)
 			conn.Write([]byte("+OK\r\n"))
 		}
 		if strings.EqualFold(command[0], "GET") {
@@ -112,17 +137,24 @@ func handleConnection(conn net.Conn) {
 		}
 	}
 }
-func setValue(key, value string) {
+func setValue(key, value string, expiresAt time.Time) {
 	mu.Lock()
 	defer mu.Unlock()
-	store[key] = value
+	store[key] = storeEntry{value: value, expiresAt: expiresAt}
 }
 
 func getValue(key string) (string, bool) {
 	mu.Lock()
 	defer mu.Unlock()
-	value, ok := store[key]
-	return value, ok
+	entry, ok := store[key]
+	if !ok {
+		return "", false
+	}
+	if !entry.expiresAt.IsZero() && time.Now().After(entry.expiresAt) {
+		delete(store, key)
+		return "", false
+	}
+	return entry.value, true
 }
 func deleteValue(key string) bool {
 	mu.Lock()
@@ -134,6 +166,24 @@ func deleteValue(key string) bool {
 func existsValue(key string) bool {
 	mu.Lock()
 	defer mu.Unlock()
-	_, ok := store[key]
-	return ok
+	entry, ok := store[key]
+	if !ok {
+		return false
+	}
+	if !entry.expiresAt.IsZero() && time.Now().After(entry.expiresAt) {
+		delete(store, key)
+		return false
+	}
+	return true
+}
+func sweepExpiredKeys() {
+	mu.Lock()
+	defer mu.Unlock()
+	now := time.Now()
+	for key, entry := range store {
+		if !entry.expiresAt.IsZero() && now.After(entry.expiresAt) {
+			delete(store, key)
+			fmt.Println("Active expiration removed key:", key)
+		}
+	}
 }
