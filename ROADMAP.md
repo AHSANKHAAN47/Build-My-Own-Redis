@@ -6,7 +6,7 @@ you write the code, I review. Check off stages as we complete them.
 ## Stage 1 — Core essentials
 - [x] 1.1 TCP server: bind to a port, accept one connection, read raw bytes
 - [x] 1.2 RESP protocol: parse a PING, reply +PONG\r\n
-- [ ] 1.3 Handle multiple concurrent clients (goroutines)
+- [x] 1.3 Handle multiple concurrent clients (goroutines) + multi-command per connection
 - [x] 1.4 ECHO command (done ahead of schedule alongside 1.2)
 - [ ] 1.5 In-memory store: SET / GET (map + mutex)
 - [ ] 1.6 DEL, EXISTS
