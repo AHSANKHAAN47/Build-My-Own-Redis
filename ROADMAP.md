@@ -11,7 +11,7 @@ you write the code, I review. Check off stages as we complete them.
 - [x] 1.5 In-memory store: SET / GET (map + mutex)
 - [x] 1.6 DEL, EXISTS
 - [x] 1.7a Key expiry: SET ... PX/EX, passive expiration (checked on GET/EXISTS)
-- [ ] 1.7b Active expiration (background sweeper goroutine)
+- [x] 1.7b Active expiration (background sweeper goroutine, verified via debug log)
 
 ## Stage 2 — Persistence
 - [ ] 2.1 RDB file format basics: read an existing RDB on startup
